@@ -1,0 +1,105 @@
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+class Product(models.Model):
+    name = models.CharField(_('name'), max_length=128, blank=False, null=False,)
+    base_price = models.FloatField(_('base price'))
+
+    def get_price(self, quantity=1):
+        return self.base_price * quantity
+
+    class Meta:
+        verbose_name = 'Product'
+        verbose_name_plural = _('Products')
+
+    def __str__(self):
+        return self.name
+
+class SeasonalProduct(Product):
+    season_discount = models.FloatField(default=0.0)
+
+    def get_price(self, quantity=1):
+        return super().get_price(quantity) * (1 - self.season_discount)
+
+class BulkProduct(Product):
+
+    def get_price(self, quantity=1):
+        price = super().get_price(quantity)
+        if 10 <= quantity <= 20:
+            price *= 0.95
+        elif 21 <= quantity <= 50:
+            price *= 0.90
+        elif quantity > 50:
+            price *= 0.85
+        return price
+
+class PremiumProduct(Product):
+    markup_percentage = models.FloatField(default=0.15)
+
+    def get_price(self, quantity=1):
+        return super().get_price(quantity) * (1 + self.markup_percentage)
+
+# Discount models
+class Discount(models.Model):
+    name = models.CharField(_('name'), max_length=128, blank=False, null=False,)
+    priority = models.IntegerField()
+
+    def apply_discount(self, price):
+        return price
+
+    class Meta:
+        verbose_name = 'Discount'
+        verbose_name_plural = _('Discounts')
+
+    def __str__(self):
+        return self.name
+
+class PercentageDiscount(Discount):
+    percentage = models.FloatField(default=0.0)
+
+    def apply_discount(self, price):
+        return price * (1 - self.percentage)
+
+class FixedAmountDiscount(Discount):
+    amount = models.FloatField(default=0.0)
+
+    def apply_discount(self, price):
+        return max(price - self.amount, 0)
+
+
+class TieredDiscount(Discount):
+    discount_data =  {500: 5, 1000: 10}
+    tiers = models.JSONField(default=discount_data)
+
+    def apply_discount(self, price):
+        discount = 0
+        for threshold, percent in sorted(self.tiers.items()):
+            if price >= threshold:
+                discount = percent
+        return price * (1 - discount / 100)
+
+
+class Order(models.Model):
+    products = models.ManyToManyField(Product, through='OrderItem')
+    discounts = models.ManyToManyField(Discount)
+
+    def calculate_total(self):
+        subtotal = sum(item.get_total_price() for item in self.orderitem_set.all())
+        applicable_discounts = self.discounts.order_by('priority')
+        total = subtotal
+        for discount in applicable_discounts:
+            total = discount.apply_discount(total)
+        return total
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE,  related_name='order_details')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE,  related_name='product_details')
+    quantity = models.IntegerField()
+
+    class Meta:
+        verbose_name = 'OrderItem'
+        verbose_name_plural = _('OrderItems')
+
+    def get_total_price(self):
+        return self.product.get_price(self.quantity)
