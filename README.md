@@ -5,7 +5,7 @@
 ### Backend (Django) Setup
 * Clone the repository
 
-* git clone 
+* git clone https://github.com/uniquedeveloper143/iFoutDemoTest.git
 * cd your-project/DemoTest
 
 ## Create and activate a virtual environment
@@ -40,4 +40,11 @@
 ## Run the Django development server
 *  manage.py runserver
 
+
+## For API test you need to pass API_KEY and Token:
+
+* login using username and password, you can get token in response
+* pass the api-key and token in the header like:
+* api-key: f9e068f7c25ec2eaf0fbed9f16a015460e06865ca22ec4a12a459172a96bc6f4
+* token: token 8e476280-1b46-4d07-a86e-4f0ddf3c597b 
 
